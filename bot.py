@@ -1,5 +1,4 @@
 import sys
-sys.path.append('/Users/jauffret/.pyenv/versions/3.8.6/envs/lewagon/lib/python3.8/site-packages')
 
 import yaml
 from selenium import webdriver
@@ -27,7 +26,7 @@ if days.index(date_today.upper())==0:
 else:
     day=jours[days.index(date_today.upper())-1]
     
-with open('config.yaml') as f:
+with open('/Users/jauffret/code/MartinJ9678/paristennis/config.yaml') as f:
    data = yaml.load(f, Loader=yaml.FullLoader)
 
 def paris_tennis(couvert=True, hours=['19h','20h','18h','21h'], numero_court = None,name = "Elisabeth", day=day, tarif='TARIF RÉDUIT'):
