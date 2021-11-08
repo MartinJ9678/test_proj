@@ -109,7 +109,7 @@ def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = N
 
         dispo_day = False
         
-        import ipdb; ipdb.set_trace()
+        #import ipdb; ipdb.set_trace()
         
         for dispo in reversed(disponibilites) : 
             print(dispo.find_element_by_class_name('date').text)
