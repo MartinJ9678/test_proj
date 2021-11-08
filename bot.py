@@ -1,5 +1,6 @@
 import sys
 
+from datetime import datetime
 import yaml
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -29,7 +30,7 @@ else:
 with open('/Users/jauffret/code/MartinJ9678/paristennis/config.yaml') as f:
    data = yaml.load(f, Loader=yaml.FullLoader)
 
-def paris_tennis(couvert=True, hours=['19h','20h','18h','21h'], numero_court = None,name = "Elisabeth", day=day, tarif='TARIF RÉDUIT'):
+def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = None,name = "Elisabeth", day=day, tarif='TARIF RÉDUIT'):
     """Réservation terrain de tennis
     *****************************************************************
     couvert = False : Si le terrain doit être couvert ou non
@@ -94,11 +95,22 @@ def paris_tennis(couvert=True, hours=['19h','20h','18h','21h'], numero_court = N
                     break
 
         driver.find_element_by_id("rechercher").click()
+        
+        while datetime.now().hour != 8:
+            print('I am waiting ...')
+            while datetime.now().hour != 8:
+                time.sleep(1)
+        
+        while driver.find_elements_by_class_name('date-item')==[]:
+            driver.find_element_by_class_name('btnRefreshResearch').click()
+            wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='date-item']")))
 
         disponibilites = driver.find_elements_by_class_name('date-item')
 
         dispo_day = False
-
+        
+        import ipdb; ipdb.set_trace()
+        
         for dispo in reversed(disponibilites) : 
             print(dispo.find_element_by_class_name('date').text)
             if dispo.find_elements_by_class_name('dispo')!=[] and day in dispo.find_element_by_class_name('date').text:
@@ -120,9 +132,10 @@ def paris_tennis(couvert=True, hours=['19h','20h','18h','21h'], numero_court = N
                     dispo_day = True
                     print(date, meteo)
                     break
-                
+        
         if dispo_day == False:
             driver.quit()
+            break
 
         if dispo_day:
 
@@ -188,7 +201,9 @@ def paris_tennis(couvert=True, hours=['19h','20h','18h','21h'], numero_court = N
 
             if not tarif_trouve:
                 print("aucun court dispo sur le tarif ou l'horaire demandé")
+                #import ipdb; ipdb.set_trace()
                 driver.quit()
+                continue
                             
             print(f"numero_court: {numero_court}/nhour: {hour}")
                             
@@ -217,7 +232,7 @@ def paris_tennis(couvert=True, hours=['19h','20h','18h','21h'], numero_court = N
             infos_player2[0].send_keys(NAME2)
             infos_player2[1].send_keys(PRENOM2)
             
-            import ipdb; ipdb.set_trace()
+            #import ipdb; ipdb.set_trace()
             
             driver.find_element_by_class_name('addPlayer').submit()
             
