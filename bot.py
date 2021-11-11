@@ -96,14 +96,14 @@ def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = N
 
         driver.find_element_by_id("rechercher").click()
         
-        while datetime.now().hour != 8:
+        while datetime.now().minute != 45:
             print('I am waiting ...')
-            while datetime.now().hour != 8:
+            while datetime.now().minute != 45:
                 time.sleep(1)
-        
-        while driver.find_elements_by_class_name('date-item')==[]:
+        #import ipdb; ipdb.set_trace()
+        while driver.find_elements_by_class_name('dispo')==[]:
             driver.find_element_by_class_name('btnRefreshResearch').click()
-            wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='date-item']")))
+            wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='dispo']")))
 
         disponibilites = driver.find_elements_by_class_name('date-item')
 
@@ -234,11 +234,11 @@ def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = N
             
             #import ipdb; ipdb.set_trace()
             
-            driver.find_element_by_class_name('addPlayer').submit()
+            #driver.find_element_by_class_name('addPlayer').submit()
             
-            driver.find_element_by_class_name("price-item").click()
+            #driver.find_element_by_class_name("price-item").click()
 
-            driver.find_element_by_id('submit').click()
+            #driver.find_element_by_id('submit').click()
             
             resa_prise = True
             
