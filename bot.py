@@ -96,9 +96,9 @@ def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = N
 
         driver.find_element_by_id("rechercher").click()
         
-        while datetime.now().minute != 45:
+        while datetime.now().hour != 8:
             print('I am waiting ...')
-            while datetime.now().minute != 45:
+            while datetime.now().hour != 8:
                 time.sleep(1)
         #import ipdb; ipdb.set_trace()
         while driver.find_elements_by_class_name('dispo')==[]:
