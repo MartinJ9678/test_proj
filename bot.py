@@ -30,7 +30,7 @@ else:
 with open('/Users/jauffret/code/MartinJ9678/paristennis/config.yaml') as f:
    data = yaml.load(f, Loader=yaml.FullLoader)
 
-def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = None,name = "Elisabeth", day=day, tarif='TARIF RÉDUIT'):
+def paris_tennis(couvert=True, hours=['20h'], numero_court = None,name = "Elisabeth", day=day, profil='1', time_waiting = 8):
     """Réservation terrain de tennis
     *****************************************************************
     couvert = False : Si le terrain doit être couvert ou non
@@ -41,11 +41,14 @@ def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = N
 
     resa_prise = False
     count = 0
+    tarif = "COUVERT"
 
-    while resa_prise==False and count<4:
+    while resa_prise==False and count<2:
         count+=1
         options = Options()
         options.add_argument("--window-size=1920,1080")
+        #options.add_argument("--headless")
+        options.add_argument("--lang=fr")
         driver = webdriver.Chrome(ChromeDriverManager().install(),options=options)
         driver.get("https://tennis.paris.fr")
         wait = WebDriverWait(driver, timeout=15)
@@ -57,10 +60,10 @@ def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = N
         driver.switch_to.window(window_after)
 
         sbox = driver.find_element_by_id("username-login")
-        sbox.send_keys(data['email'])
+        sbox.send_keys(data[f"email{profil}"])
 
         sbox = driver.find_element_by_id("password-login")
-        sbox.send_keys(data['password'])
+        sbox.send_keys(data[f"password{profil}"])
 
         sbox.submit()
 
@@ -96,17 +99,54 @@ def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = N
 
         driver.find_element_by_id("rechercher").click()
         
-        while datetime.now().hour != 8:
+        disponibilites = driver.find_elements_by_class_name('date-item')
+        print(f'disponibilities before : {disponibilites}')
+        print(f"text dispo before : {driver.find_elements_by_class_name('date-item')[-1].text}")
+        while datetime.now().hour != time_waiting:
             print('I am waiting ...')
-            while datetime.now().hour != 8:
+            while datetime.now().hour != time_waiting:
                 time.sleep(1)
         #import ipdb; ipdb.set_trace()
-        while driver.find_elements_by_class_name('dispo')==[]:
-            driver.find_element_by_class_name('btnRefreshResearch').click()
-            wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='dispo']")))
-
+        system_ok = False
+        count_raf = 0
+        stopper = 0
+        while not system_ok and stopper<15: 
+            print(f'{count_raf} try')
+            print(f'stopper : {stopper}')
+            stopper+=1
+            if day in driver.find_elements_by_class_name('date-item')[-1].text and 'disponibilités' in driver.find_elements_by_class_name('date-item')[-1].text:
+                system_ok=True
+                print('deja ok')
+                break
+            try :
+                stopper2 = 0
+                while day not in driver.find_elements_by_class_name('date-item')[-1].text or 'disponibilités' not in driver.find_elements_by_class_name('date-item')[-1].text:
+                    stopper2+=1
+                    if stopper2>15:
+                        break
+                    print(f'stopper2 : {stopper2}')
+                    print(f'rafraichissement {count_raf+1}')
+                    count_raf+=1
+                    driver.find_element_by_class_name('btnRefreshResearch').click()
+                    wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='dispo']")))
+                    system_ok = True
+            except StaleElementReferenceException: 
+                print('first except')
+                try :
+                    print('second try possible')
+                    driver.find_element_by_class_name('btnRefreshResearch').click()
+                    wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='dispo']")))
+                except StaleElementReferenceException :
+                    print('second except')
+                    time.sleep(1)
+        start_hour = time.time()
+        # while day not in driver.find_elements_by_class_name('date-item')[-1].text or 'disponibilités' not in driver.find_elements_by_class_name('date-item')[-1].text:
+        #     driver.find_element_by_class_name('btnRefreshResearch').click()
+        #     wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='dispo']")))
+            
         disponibilites = driver.find_elements_by_class_name('date-item')
-
+        print(f"disponibilities after : {disponibilites}")
+        print(f"text dispo after : {driver.find_elements_by_class_name('date-item')[-1].text}")
         dispo_day = False
         
         #import ipdb; ipdb.set_trace()
@@ -172,8 +212,12 @@ def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = N
                     if tarif_trouve:
                         break
                 if tarif_trouve:
-                    break       
-                     
+                    break
+            
+            last_scrap = time.time() - start_hour
+            
+            print(f"last scrap : {last_scrap}")
+            
             print(f"tarif : {tarif_trouve}")
             
             if not tarif_trouve:
@@ -204,7 +248,8 @@ def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = N
                 #import ipdb; ipdb.set_trace()
                 driver.quit()
                 continue
-                            
+            
+                     
             print(f"numero_court: {numero_court}/nhour: {hour}")
                             
 
@@ -212,8 +257,9 @@ def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = N
             PRENOM1 = 'MARTIN'
             EMAIL1 = 'martinjfrt@hotmail.fr'
 
+            wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//input[@name='player1']")))
             infos_player1 = driver.find_elements_by_name('player1')
-
+            print(infos_player1)
 
             infos_player1[0].send_keys(NAME1)
             infos_player1[1].send_keys(PRENOM1)
@@ -221,26 +267,26 @@ def paris_tennis(couvert=True, hours=['20h','21h','19h','18h'], numero_court = N
 
 
             driver.find_element_by_class_name('addPlayer').click()
-
+            
+            wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//input[@name='player2']")))
             infos_player2 = driver.find_elements_by_name('player2')
 
 
-            NAME2 = 'BOUTIN'
+            NAME2 = 'DE CHAMBURE'
 
-            PRENOM2 = 'JEAN'
+            PRENOM2 = 'CYPRIEN'
 
             infos_player2[0].send_keys(NAME2)
             infos_player2[1].send_keys(PRENOM2)
             
-            #import ipdb; ipdb.set_trace()
+            driver.find_element_by_class_name('addPlayer').submit()
             
-            #driver.find_element_by_class_name('addPlayer').submit()
-            
-            #driver.find_element_by_class_name("price-item").click()
+            wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='price']")))
+            driver.find_element_by_class_name("price").click()
 
-            #driver.find_element_by_id('submit').click()
+            driver.find_element_by_id('submit').click()
             
             resa_prise = True
             
 if __name__=='__main__':
-    paris_tennis(couvert=True, tarif='TARIF PLEIN')
+    paris_tennis(profil="1",time_waiting=8)
