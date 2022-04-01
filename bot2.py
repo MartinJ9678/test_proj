@@ -32,4 +32,4 @@ with open('/Users/jauffret/code/MartinJ9678/paristennis/config.yaml') as f:
    data = yaml.load(f, Loader=yaml.FullLoader)
             
 if __name__=='__main__':
-    paris_tennis(hours=['21h','18h'],profil="2",time_waiting=8)
+    paris_tennis(hours=['21h','19h'],profil="2",time_waiting=8)
