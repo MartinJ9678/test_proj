@@ -38,4 +38,4 @@ if __name__=='__main__':
             training=True
     else:
         training=False
-    paris_tennis(hours=['21h','19h'],profil="2",time_waiting=8,training=training)
+    paris_tennis(hours=['21h','19h'],profil="2",time_waiting=8,training=training, numero_court='N°8')

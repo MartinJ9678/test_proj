@@ -168,26 +168,24 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
                     horaire.find_element_by_class_name('panel-title').click()
                     wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='panel-collapse collapse in']")))
                     courts = horaire.find_elements_by_class_name('tennis-court')
-                    #print(f'courts selenium : {courts}')
-                    for court in courts:
-                        court_trouve = False
-                        tarif_trouve = False
-                        #print(f"court infos : {court.find_element_by_class_name('price-description').text}")
-                        if tarif in court.find_element_by_class_name('price-description').text:
+                    if tarif in courts[0].find_element_by_class_name('price-description').text:
                             tarif_trouve = True
-                            #print('tarif trouve')
-                            if numero_court!=None:
-                                print('recherche court')
-                                if numero_court in court.text:
-                                    court.find_element_by_class_name('btn').click()
-                                    court_trouve = True
-                                if not court_trouve:
-                                    numero_court = courts[0].text[6:9]
-                                    courts[0].find_element_by_class_name('btn').click()
-                            else:
-                                numero_court = courts[0].text[6:9]
-                                courts[0].find_element_by_class_name('btn').click()
-                            break
+                    if numero_court!=None and numero_court in horaire.text:
+                        courts = horaire.find_elements_by_class_name('tennis-court')
+                        court_trouve = False
+                        for court in courts:
+                            if numero_court in court.text:
+                                print(court.text)
+                                numero_court = court.text[6:9]
+                                court.find_element_by_class_name('btn').click()
+                                court_trouve = True
+                                break
+                        if court_trouve==False:
+                            numero_court = courts[0].text[6:9]
+                            courts[0].find_element_by_class_name('btn').click()
+                    else:
+                        numero_court = courts[0].text[6:9]
+                        courts[0].find_element_by_class_name('btn').click()
                 if tarif_trouve:
                     break
             if tarif_trouve:
@@ -229,6 +227,9 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
 
         if training:
             print('all good')
+            driver.find_element_by_id('precedent').click()
+            wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='modal-footer']")))
+            driver.find_element_by_id('btnCancelBooking').click()
             resa_prise=True
             return "test OK"
 
