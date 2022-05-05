@@ -32,4 +32,10 @@ with open('/Users/jauffret/code/MartinJ9678/paristennis/config.yaml') as f:
    data = yaml.load(f, Loader=yaml.FullLoader)
             
 if __name__=='__main__':
-    paris_tennis(hours=['20h','18h'],profil="3",time_waiting=8)
+    args = sys.argv
+    if len(args)>1:
+        if args[1]=='training':
+            training=True
+    else:
+        training=False
+    paris_tennis(hours=['20h','18h'],profil="3",time_waiting=8,training=training)

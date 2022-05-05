@@ -30,7 +30,7 @@ else:
 with open('/Users/jauffret/code/MartinJ9678/paristennis/config.yaml') as f:
    data = yaml.load(f, Loader=yaml.FullLoader)
 
-def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "Elisabeth", day=day, profil='1', time_waiting = 8):
+def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "Elisabeth", day=day, profil='1', time_waiting = 8, training=False):
     """Réservation terrain de tennis
     *****************************************************************
     couvert = False : Si le terrain doit être couvert ou non
@@ -47,9 +47,15 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
         count+=1
         options = Options()
         options.add_argument("--window-size=1920,1080")
-        options.add_argument("--headless")
+        if not training:
+            options.add_argument("--headless")
         options.add_argument("--lang=fr")
-        driver = webdriver.Chrome(ChromeDriverManager().install(),options=options)
+        try:
+            driver = webdriver.Chrome(ChromeDriverManager().install(),options=options)
+        except:
+            time.sleep(20)
+            print("2eme essai")
+            driver = webdriver.Chrome(ChromeDriverManager().install(),options=options)
         driver.get("https://tennis.paris.fr")
         wait = WebDriverWait(driver, timeout=15)
 
@@ -102,10 +108,11 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
         disponibilites = driver.find_elements_by_class_name('date-item')
         print(f'disponibilities before : {disponibilites}')
         print(f"text dispo before : {driver.find_elements_by_class_name('date-item')[-1].text}")
-        while datetime.now().hour != time_waiting:
-            print('I am waiting ...')
+        if not training:
             while datetime.now().hour != time_waiting:
-                time.sleep(1)
+                print('I am waiting ...')
+                while datetime.now().hour != time_waiting:
+                    time.sleep(1)
         #import ipdb; ipdb.set_trace()
         system_ok = False
         count_raf = 0
@@ -130,6 +137,7 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
                     driver.find_element_by_class_name('btnRefreshResearch').click()
                     wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='dispo']")))
                     system_ok = True
+                    print(system_ok)
             except StaleElementReferenceException: 
                 print('first except')
                 try :
@@ -169,6 +177,7 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
                             tarif_trouve = True
                             #print('tarif trouve')
                             if numero_court!=None:
+                                print('recherche court')
                                 if numero_court in court.text:
                                     court.find_element_by_class_name('btn').click()
                                     court_trouve = True
@@ -218,6 +227,10 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
         wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//input[@name='player2']")))
         infos_player2 = driver.find_elements_by_name('player2')
 
+        if training:
+            print('all good')
+            resa_prise=True
+            return "test OK"
 
         NAME2 = 'DE CHAMBURE'
 
@@ -234,6 +247,14 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
         driver.find_element_by_id('submit').click()
         
         resa_prise = True
+        
+        print("resa ok")
             
 if __name__=='__main__':
-    paris_tennis(profil="1",time_waiting=8)
+    args = sys.argv
+    if len(args)>1:
+        if args[1]=='training':
+            training=True
+    else:
+        training=False
+    paris_tennis(profil="1",time_waiting=8, training=training)
