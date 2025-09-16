@@ -33,22 +33,44 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Try multiple config locations
-config_paths = [
-    'config.yaml',
-    os.path.join(os.path.dirname(__file__), 'config.yaml'),
-    os.path.expanduser('~/paristennis/config.yaml')
-]
+# Configuration mode detection (Heroku vs Local)
+IS_HEROKU = os.environ.get('DYNO') is not None or os.environ.get('HEROKU_ENV') is not None
 
 data = {}
-for config_path in config_paths:
-    if os.path.exists(config_path):
-        with open(config_path) as f:
-            data = yaml.load(f, Loader=yaml.FullLoader)
-            break
+if IS_HEROKU:
+    logger.info("Running in Heroku mode - using environment variables")
+    # Build data dict from environment variables for compatibility
+    data = {
+        'email1': os.environ.get('MAIL_1', ''),
+        'email2': os.environ.get('MAIL_2', ''),
+        'email3': os.environ.get('MAIL_3', ''),
+        'password1': os.environ.get('TITLE_1', ''),  # TITLE is password in Heroku
+        'password2': os.environ.get('TITLE_2', ''),
+        'password3': os.environ.get('TITLE_3', ''),
+        'player1_lastname': os.environ.get('NAME1', 'JAUFFRET'),
+        'player1_firstname': os.environ.get('PRENOM1', 'MARTIN'),
+        'player1_email': os.environ.get('EMAIL1', ''),
+        'player2_lastname': os.environ.get('NAME2', 'DE CHAMBURE'),
+        'player2_firstname': os.environ.get('PRENOM2', 'CYPRIEN'),
+    }
+else:
+    logger.info("Running in local mode - using config.yaml")
+    # Try multiple config locations
+    config_paths = [
+        'config.yaml',
+        os.path.join(os.path.dirname(__file__), 'config.yaml'),
+        os.path.expanduser('~/paristennis/config.yaml')
+    ]
 
-if not data:
-    logger.warning("No config file found, using defaults")
+    for config_path in config_paths:
+        if os.path.exists(config_path):
+            with open(config_path) as f:
+                data = yaml.load(f, Loader=yaml.FullLoader)
+                logger.info(f"Loaded config from: {config_path}")
+                break
+
+    if not data:
+        logger.warning("No config file found, using defaults")
 
 def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "Elisabeth", day=day, profil='1', time_waiting = 8, training=False):
     """Réservation terrain de tennis
@@ -129,10 +151,18 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
 
         driver.get("https://tennis.paris.fr/tennis/jsp/site/Portal.jsp?page=recherche&view=recherche_creneau#!")
         wait = WebDriverWait(driver, timeout=15)
-        
+
+        # Wait for page to fully load before interacting with elements
+        time.sleep(1)
+
         if couvert==True:
-            driver.find_element(By.ID, "dropdownTerrain").click()
-            driver.find_element(By.XPATH, "//label[@for='chckDécouvert']").click()
+            try:
+                wait.until(ec.element_to_be_clickable((By.ID, "dropdownTerrain")))
+                driver.find_element(By.ID, "dropdownTerrain").click()
+                time.sleep(1)
+                driver.find_element(By.XPATH, "//label[@for='chckDécouvert']").click()
+            except Exception as e:
+                logger.debug(f"Could not set court type filter: {e}")
 
         try : 
             sbox = driver.find_element(By.CLASS_NAME, "tokens-input-text")
@@ -278,9 +308,26 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
             
 if __name__=='__main__':
     args = sys.argv
-    if len(args)>1:
-        if args[1]=='training':
-            training=True
+    training = False
+
+    if len(args) > 1:
+        if args[1] == 'training':
+            training = True
+
+    if IS_HEROKU:
+        # Heroku mode - use environment variables for parameters
+        logger.info(f"Heroku mode - Day check: {day} vs {os.environ.get('DAY')}")
+        if day == os.environ.get("DAY"):
+            logger.info('Launching reservation on Heroku')
+            paris_tennis(
+                numero_court=os.environ.get("numero_court"),
+                name=os.environ.get("court_name", "Elisabeth"),
+                time_waiting=int(os.environ.get("time_waiting", "8")),
+                profil=os.environ.get("profil", "1"),
+                training=training
+            )
+        else:
+            logger.info("Not the right day for reservation")
     else:
-        training=False
-    paris_tennis(profil="1",time_waiting=8, training=training)
+        # Local mode - use default parameters or command line
+        paris_tennis(profil="1", time_waiting=8, training=training)
