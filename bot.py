@@ -84,21 +84,48 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
         driver.get("https://tennis.paris.fr")
         wait = WebDriverWait(driver, timeout=15)
 
-        window_before = driver.window_handles[0]
-        driver.find_element(By.ID, 'button_suivi_inscription').click()
-        window_after = driver.window_handles[1]
+        # Handle authentication flow - check if login button opens new window or redirects
+        try:
+            window_before = driver.window_handles[0]
+            driver.find_element(By.ID, 'button_suivi_inscription').click()
 
-        driver.switch_to.window(window_after)
+            # Wait for either new window or redirect
+            time.sleep(2)
 
-        sbox = driver.find_element(By.ID, "username-login")
-        sbox.send_keys(data[f"email{profil}"])
+            if len(driver.window_handles) > 1:
+                # New window opened (old behavior)
+                window_after = driver.window_handles[1]
+                driver.switch_to.window(window_after)
 
-        sbox = driver.find_element(By.ID, "password-login")
-        sbox.send_keys(data[f"password{profil}"])
+                sbox = driver.find_element(By.ID, "username-login")
+                sbox.send_keys(data[f"email{profil}"])
 
-        sbox.submit()
+                sbox = driver.find_element(By.ID, "password-login")
+                sbox.send_keys(data[f"password{profil}"])
 
-        driver.switch_to.window(window_before)
+                sbox.submit()
+
+                driver.switch_to.window(window_before)
+            else:
+                # Redirected to auth page (new behavior)
+                wait.until(ec.presence_of_element_located((By.ID, "username")))
+
+                # Fill login form on auth page
+                sbox = driver.find_element(By.ID, "username")
+                sbox.send_keys(data[f"email{profil}"])
+
+                sbox = driver.find_element(By.ID, "password")
+                sbox.send_keys(data[f"password{profil}"])
+
+                driver.find_element(By.XPATH, "//button[contains(@class, 'btn') or contains(text(), 'Continuer')]").click()
+
+                # Wait for redirect back to tennis site
+                wait.until(lambda driver: "tennis.paris.fr" in driver.current_url)
+
+        except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            # Try to continue anyway - user might already be logged in
+            pass
 
         driver.get("https://tennis.paris.fr/tennis/jsp/site/Portal.jsp?page=recherche&view=recherche_creneau#!")
         wait = WebDriverWait(driver, timeout=15)
@@ -130,9 +157,14 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
 
         driver.find_element(By.ID, "rechercher").click()
         
-        disponibilites = driver.find_elements(By.CLASS_NAME, 'date-item')
-        logger.debug(f'disponibilities before : {disponibilites}')
-        logger.debug(f"text dispo before : {driver.find_elements(By.CLASS_NAME, 'date-item')[-1].text}")
+        try:
+            disponibilites = driver.find_elements(By.CLASS_NAME, 'date-item')
+            logger.debug(f'disponibilities before : {len(disponibilites)}')
+            if disponibilites:
+                logger.debug(f"text dispo before : {disponibilites[-1].text}")
+        except StaleElementReferenceException as e:
+            logger.debug(f'StaleElementReferenceException in initial availability check: {e}')
+            disponibilites = driver.find_elements(By.CLASS_NAME, 'date-item')
         if not training:
             while datetime.now().hour != time_waiting:
                 logger.info('Waiting for scheduled time...')
