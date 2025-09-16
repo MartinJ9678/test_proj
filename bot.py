@@ -7,6 +7,7 @@ import yaml
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
@@ -70,16 +71,16 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
             options.add_argument("--headless")
         options.add_argument("--lang=fr")
         try:
-            driver = webdriver.Chrome(ChromeDriverManager().install(),options=options)
+            # Use the correct chromedriver path
+            chromedriver_path = os.path.expanduser('~/.wdm/drivers/chromedriver/mac64/140.0.7339.82/chromedriver-mac-x64/chromedriver')
+            if os.path.exists(chromedriver_path):
+                service = ChromeService(chromedriver_path)
+            else:
+                service = ChromeService(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=options)
         except Exception as e:
             logger.error(f"Erreur lors de l'initialisation du driver Chrome: {e}")
-            logger.info("Nouvelle tentative dans 20 secondes...")
-            time.sleep(20)
-            try:
-                driver = webdriver.Chrome(ChromeDriverManager().install(),options=options)
-            except Exception as e:
-                logger.error(f"Échec de la deuxième tentative: {e}")
-                raise
+            raise
         driver.get("https://tennis.paris.fr")
         wait = WebDriverWait(driver, timeout=15)
 
