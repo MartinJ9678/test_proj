@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 # Try multiple config locations
 config_paths = [
     'config.yaml',
-    '/Users/jauffret/code/MartinJ9678/paristennis/config.yaml',
+    os.path.join(os.path.dirname(__file__), 'config.yaml'),
     os.path.expanduser('~/paristennis/config.yaml')
 ]
 
