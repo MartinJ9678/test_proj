@@ -53,7 +53,7 @@ Located in `bot.py`, this is the main automation function with parameters for:
 - Chrome-only browser support with deprecated Selenium methods
 
 ### Configuration
-- External config file: `/Users/jauffret/code/MartinJ9678/paristennis/config.yaml`
+- External config file: `config.yaml`
 - Contains user credentials, court preferences, and personal information
 - File path may need adjustment for different development environments
 
