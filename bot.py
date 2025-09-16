@@ -1,20 +1,17 @@
+import logging
 import sys
+import time
+from datetime import date, datetime
 
-from datetime import datetime
 import yaml
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as ec
-from selenium.webdriver.chrome.options import Options
-
-from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
-
-import time
-from datetime import date
-
 from selenium.common.exceptions import StaleElementReferenceException
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as ec
+from selenium.webdriver.support.ui import WebDriverWait
+from webdriver_manager.chrome import ChromeDriverManager
 
 jours = ['LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI','SAMEDI','DIMANCHE']
 
@@ -27,8 +24,31 @@ if days.index(date_today.upper())==0:
 else:
     day=jours[days.index(date_today.upper())-1]
     
-with open('/Users/jauffret/code/MartinJ9678/paristennis/config.yaml') as f:
-   data = yaml.load(f, Loader=yaml.FullLoader)
+import os
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Try multiple config locations
+config_paths = [
+    'config.yaml',
+    os.path.join(os.path.dirname(__file__), 'config.yaml'),
+    os.path.expanduser('~/paristennis/config.yaml')
+]
+
+data = {}
+for config_path in config_paths:
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            data = yaml.load(f, Loader=yaml.FullLoader)
+            break
+
+if not data:
+    logger.warning("No config file found, using defaults")
 
 def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "Elisabeth", day=day, profil='1', time_waiting = 8, training=False):
     """Réservation terrain de tennis
@@ -51,24 +71,29 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
             options.add_argument("--headless")
         options.add_argument("--lang=fr")
         try:
-            driver = webdriver.Chrome(ChromeDriverManager().install(),options=options)
-        except:
-            time.sleep(20)
-            print("2eme essai")
-            driver = webdriver.Chrome(ChromeDriverManager().install(),options=options)
+            # Use the correct chromedriver path
+            chromedriver_path = os.path.expanduser('~/.wdm/drivers/chromedriver/mac64/140.0.7339.82/chromedriver-mac-x64/chromedriver')
+            if os.path.exists(chromedriver_path):
+                service = ChromeService(chromedriver_path)
+            else:
+                service = ChromeService(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=options)
+        except Exception as e:
+            logger.error(f"Erreur lors de l'initialisation du driver Chrome: {e}")
+            raise
         driver.get("https://tennis.paris.fr")
         wait = WebDriverWait(driver, timeout=15)
 
         window_before = driver.window_handles[0]
-        driver.find_element_by_id('button_suivi_inscription').click()
+        driver.find_element(By.ID, 'button_suivi_inscription').click()
         window_after = driver.window_handles[1]
 
         driver.switch_to.window(window_after)
 
-        sbox = driver.find_element_by_id("username-login")
+        sbox = driver.find_element(By.ID, "username-login")
         sbox.send_keys(data[f"email{profil}"])
 
-        sbox = driver.find_element_by_id("password-login")
+        sbox = driver.find_element(By.ID, "password-login")
         sbox.send_keys(data[f"password{profil}"])
 
         sbox.submit()
@@ -79,113 +104,93 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
         wait = WebDriverWait(driver, timeout=15)
         
         if couvert==True:
-            driver.find_element_by_id("dropdownTerrain").click()
-            driver.find_element_by_xpath("//label[@for='chckDécouvert']").click()
+            driver.find_element(By.ID, "dropdownTerrain").click()
+            driver.find_element(By.XPATH, "//label[@for='chckDécouvert']").click()
 
         try : 
-            sbox = driver.find_element_by_class_name("tokens-input-text")
+            sbox = driver.find_element(By.CLASS_NAME, "tokens-input-text")
             sbox.send_keys(name)
             time.sleep(1) 
-            suggestions = driver.find_elements_by_class_name('tokens-suggestions-list-element')
+            suggestions = driver.find_elements(By.CLASS_NAME, 'tokens-suggestions-list-element')
             for suggestion in suggestions:
                 if name.upper() in suggestion.text.upper():
                     
                     suggestion.click()
                     break
         except StaleElementReferenceException :
-            print('retry')
-            sbox = driver.find_element_by_class_name("tokens-input-text")
+            logger.debug('Retry after StaleElementReferenceException')
+            sbox = driver.find_element(By.CLASS_NAME, "tokens-input-text")
             sbox.send_keys(name)
             time.sleep(1) 
-            suggestions = driver.find_elements_by_class_name('tokens-suggestions-list-element')
+            suggestions = driver.find_elements(By.CLASS_NAME, 'tokens-suggestions-list-element')
             for suggestion in suggestions:
                 if name.upper() in suggestion.text.upper():
                     suggestion.click()
                     break
 
-        driver.find_element_by_id("rechercher").click()
+        driver.find_element(By.ID, "rechercher").click()
         
-        disponibilites = driver.find_elements_by_class_name('date-item')
-        print(f'disponibilities before : {disponibilites}')
-        print(f"text dispo before : {driver.find_elements_by_class_name('date-item')[-1].text}")
+        disponibilites = driver.find_elements(By.CLASS_NAME, 'date-item')
+        logger.debug(f'disponibilities before : {disponibilites}')
+        logger.debug(f"text dispo before : {driver.find_elements(By.CLASS_NAME, 'date-item')[-1].text}")
         if not training:
             while datetime.now().hour != time_waiting:
-                print('I am waiting ...')
+                logger.info('Waiting for scheduled time...')
                 while datetime.now().hour != time_waiting:
                     time.sleep(1)
-        #import ipdb; ipdb.set_trace()
-        system_ok = False
-        count_raf = 0
-        stopper = 0
-        while not system_ok and stopper<15: 
-            print(f'{count_raf} try')
-            print(f'stopper : {stopper}')
-            stopper+=1
-            if day in driver.find_elements_by_class_name('date-item')[-1].text and 'disponibilités' in driver.find_elements_by_class_name('date-item')[-1].text:
-                system_ok=True
-                print('deja ok')
-                break
-            try :
-                stopper2 = 0
-                while day not in driver.find_elements_by_class_name('date-item')[-1].text or 'disponibilités' not in driver.find_elements_by_class_name('date-item')[-1].text:
-                    stopper2+=1
-                    if stopper2>15:
-                        break
-                    print(f'stopper2 : {stopper2}')
-                    print(f'rafraichissement {count_raf+1}')
-                    count_raf+=1
-                    driver.find_element_by_class_name('btnRefreshResearch').click()
-                    wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='dispo']")))
-                    system_ok = True
-                    print(system_ok)
-            except StaleElementReferenceException: 
-                print('first except')
-                try :
-                    print('second try possible')
-                    driver.find_element_by_class_name('btnRefreshResearch').click()
-                    wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='dispo']")))
-                except StaleElementReferenceException :
-                    print('second except')
-                    time.sleep(1)
-        start_hour = time.time()
-        # while day not in driver.find_elements_by_class_name('date-item')[-1].text or 'disponibilités' not in driver.find_elements_by_class_name('date-item')[-1].text:
-        #     driver.find_element_by_class_name('btnRefreshResearch').click()
-        #     wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='dispo']")))
-            
-        disponibilites = driver.find_elements_by_class_name('date-item')
+        # Wait for availability to show up for the target day
+        max_attempts = 15
+        for attempt in range(max_attempts):
+            try:
+                date_items = driver.find_elements(By.CLASS_NAME, 'date-item')
+                if date_items and day in date_items[-1].text and 'disponibilités' in date_items[-1].text:
+                    logger.info('Disponibilité trouvée')
+                    break
 
-        disponibilites[-1].find_element_by_class_name('date').click()
+                logger.debug(f'Tentative {attempt + 1}/{max_attempts} - Rafraîchissement...')
+                driver.find_element(By.CLASS_NAME, 'btnRefreshResearch').click()
+                wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='dispo']")))
+
+            except StaleElementReferenceException as e:
+                logger.debug(f'StaleElementReferenceException lors de la tentative {attempt + 1}: {e}')
+                time.sleep(1)
+                continue
+
+        else:
+            logger.warning(f'Aucune disponibilité trouvée après {max_attempts} tentatives')
+        start_hour = time.time()
+        disponibilites = driver.find_elements(By.CLASS_NAME, 'date-item')
+
+        disponibilites[-1].find_element(By.CLASS_NAME, 'date').click()
         wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='panel panel-default']")))
 
-        horaires = driver.find_elements_by_xpath("//div[@class='panel panel-default']")
+        horaires = driver.find_elements(By.XPATH, "//div[@class='panel panel-default']")
         
         for hour in hours:
-            #print(hour)
             for horaire in reversed(horaires):
                 tarif_trouve = False
-                if hour in horaire.find_element_by_class_name('panel-title').text:
-                    #print('hour trouve')
-                    horaire.find_element_by_class_name('panel-title').click()
+                if hour in horaire.find_element(By.CLASS_NAME, 'panel-title').text:
+                    horaire.find_element(By.CLASS_NAME, 'panel-title').click()
                     wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='panel-collapse collapse in']")))
-                    courts = horaire.find_elements_by_class_name('tennis-court')
-                    if tarif in courts[0].find_element_by_class_name('price-description').text:
+                    courts = horaire.find_elements(By.CLASS_NAME, 'tennis-court')
+                    if tarif in courts[0].find_element(By.CLASS_NAME, 'price-description').text:
                             tarif_trouve = True
                     if numero_court!=None and numero_court in horaire.text:
-                        courts = horaire.find_elements_by_class_name('tennis-court')
+                        courts = horaire.find_elements(By.CLASS_NAME, 'tennis-court')
                         court_trouve = False
                         for court in courts:
                             if numero_court in court.text:
-                                print(court.text)
+                                logger.debug(f"Court sélectionné: {court.text}")
                                 numero_court = court.text[6:9]
-                                court.find_element_by_class_name('btn').click()
+                                court.find_element(By.CLASS_NAME, 'btn').click()
                                 court_trouve = True
                                 break
                         if court_trouve==False:
                             numero_court = courts[0].text[6:9]
-                            courts[0].find_element_by_class_name('btn').click()
+                            courts[0].find_element(By.CLASS_NAME, 'btn').click()
                     else:
                         numero_court = courts[0].text[6:9]
-                        courts[0].find_element_by_class_name('btn').click()
+                        courts[0].find_element(By.CLASS_NAME, 'btn').click()
                 if tarif_trouve:
                     break
             if tarif_trouve:
@@ -193,63 +198,51 @@ def paris_tennis(couvert=True, hours=['21h','19h'], numero_court = None,name = "
         
         last_scrap = time.time() - start_hour
         
-        print(f"last scrap : {last_scrap}")
+        logger.info(f"Temps de recherche: {last_scrap:.2f}s")
+        logger.info(f"Tarif trouvé: {tarif_trouve}")
         
-        print(f"tarif : {tarif_trouve}")
-        
-        #print("date: " + date + "\nmeteo: " + meteo)
 
         if not tarif_trouve:
-            print("aucun court dispo sur le tarif ou l'horaire demandé")
-            #import ipdb; ipdb.set_trace()
+            logger.warning("Aucun court disponible sur le tarif ou l'horaire demandé")
             driver.quit()
             continue
                     
-        print(f"numero_court: {numero_court}/nhour: {hour}")
+        logger.info(f"Réservation - Court: {numero_court}, Heure: {hour}")
         
-        NAME1 = 'JAUFFRET'
-        PRENOM1 = 'MARTIN'
-        EMAIL1 = 'martinjfrt@hotmail.fr'
-
         wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//input[@name='player1']")))
-        infos_player1 = driver.find_elements_by_name('player1')
-        #print(infos_player1)
+        infos_player1 = driver.find_elements(By.NAME, 'player1')
 
-        infos_player1[0].send_keys(NAME1)
-        infos_player1[1].send_keys(PRENOM1)
-        infos_player1[2].send_keys(EMAIL1)
+        infos_player1[0].send_keys(data.get(f'player{profil}_lastname', 'JAUFFRET'))
+        infos_player1[1].send_keys(data.get(f'player{profil}_firstname', 'MARTIN'))
+        infos_player1[2].send_keys(data.get(f'player{profil}_email', data[f'email{profil}']))
 
 
-        driver.find_element_by_class_name('addPlayer').click()
+        driver.find_element(By.CLASS_NAME, 'addPlayer').click()
         
         wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//input[@name='player2']")))
-        infos_player2 = driver.find_elements_by_name('player2')
+        infos_player2 = driver.find_elements(By.NAME, 'player2')
 
         if training:
-            print('all good')
-            driver.find_element_by_id('precedent').click()
+            logger.info('Mode training - Test réussi')
+            driver.find_element(By.ID, 'precedent').click()
             wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='modal-footer']")))
-            driver.find_element_by_id('btnCancelBooking').click()
+            driver.find_element(By.ID, 'btnCancelBooking').click()
             resa_prise=True
             return "test OK"
 
-        NAME2 = 'DE CHAMBURE'
-
-        PRENOM2 = 'CYPRIEN'
-
-        infos_player2[0].send_keys(NAME2)
-        infos_player2[1].send_keys(PRENOM2)
+        infos_player2[0].send_keys(data.get('player2_lastname', 'DE CHAMBURE'))
+        infos_player2[1].send_keys(data.get('player2_firstname', 'CYPRIEN'))
         
-        driver.find_element_by_class_name('addPlayer').submit()
+        driver.find_element(By.CLASS_NAME, 'addPlayer').submit()
         
         wait.until(ec.visibility_of_all_elements_located((By.XPATH, "//div[@class='price']")))
-        driver.find_element_by_class_name("price").click()
+        driver.find_element(By.CLASS_NAME, "price").click()
 
-        driver.find_element_by_id('submit').click()
+        driver.find_element(By.ID, 'submit').click()
         
         resa_prise = True
         
-        print("resa ok")
+        logger.info("Réservation effectuée avec succès")
             
 if __name__=='__main__':
     args = sys.argv
